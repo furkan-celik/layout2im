@@ -26,7 +26,7 @@ def main(config):
     elif config.dataset == 'coco':
         data_loader, _ = get_dataloader_coco(batch_size=config.batch_size, COCO_DIR=config.coco_dir)
     elif config.dataset == "wui":
-        data_loader, _ = build_wui_dsets(batch_size=config.batch_size, cfg={
+        data_loader = build_wui_dsets(batch_size=config.batch_size, cfg={
             "split_file": "/content/balanced_7k.json",
             "boxes_dir": "/content/webui-boxes/all_data",
             "rawdata_screenshots_dir": "/content/ds_all",
