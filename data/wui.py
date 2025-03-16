@@ -135,15 +135,20 @@ class WebUIDataset(torch.utils.data.Dataset):
             box[2] *= scale
             box[3] *= scale
 
-            box[0] = min(max(0, box[0]), img_pil.size[0]) / img_pil.size[0]
-            box[1] = min(max(0, box[1]), img_pil.size[1]) / img_pil.size[1]
-            box[2] = min(max(0, box[2]), img_pil.size[0]) / img_pil.size[0]
-            box[3] = min(max(0, box[3]), img_pil.size[1]) / img_pil.size[1]
+            box[0] = min(max(0, box[0]), org_size[0]) / org_size[0]
+            box[1] = min(max(0, box[1]), org_size[1]) / org_size[1]
+            box[2] = min(max(0, box[2]), org_size[0]) / org_size[0]
+            box[3] = min(max(0, box[3]), org_size[1]) / org_size[1]
+
+            # box[0] *= self.image_size[0]
+            # box[1] *= self.image_size[1]
+            # box[2] *= self.image_size[0]
+            # box[3] *= self.image_size[1]
 
             h, w = img_pil.size[0], img_pil.size[1]
 
-            mask = torch.zeros(1, img_pil.size[0], img_pil.size[1])
-            mask[:, round(box[1] * w):max(round(box[1] * w) + 1, round(box[3] * w)), round(box[0] * h):max(round(box[0] * h) + 1, round(box[2] * h))] = 1
+            mask = torch.zeros(1, h, w)
+            mask[:, round(box[0] * h):max(round(box[0] * h) + 1, round(box[2] * h)), round(box[1] * w):max(round(box[1] * w) + 1, round(box[3] * w))] = 1
 
             # skip invalid boxes
             if box[0] < 0 or box[1] < 0 or box[2] < 0 or box[3] < 0:
@@ -175,10 +180,12 @@ class WebUIDataset(torch.utils.data.Dataset):
             return self.__getitem__(idx + 1)
 
         boxes = torch.tensor(boxes, dtype=torch.float)
+        masks = torch.tensor(masks, dtype=torch.float)
 
         labels = torch.tensor(labels, dtype=torch.long)
 
         target["obj_bbox"] = boxes if len(boxes.shape) == 2 else torch.zeros(0, 4)
+        target["obj_mask"] = masks if len(masks.shape) == 2 else torch.zeros(1, img_pil.size[0], img_pil.size[1])
         target["obj_class"] = labels
         target["obj_class_name"] = labelNames
         target["image_id"] = torch.tensor([idx])
@@ -199,14 +206,15 @@ class WebUIDataset(torch.utils.data.Dataset):
             if not isinstance(target[k], int):
                 target[k] = target[k][: self.max_boxes]
 
-        target["obj_bbox"][:, 0] /= org_size[0] / self.image_size[1]
-        target["obj_bbox"][:, 1] /= org_size[1] / self.image_size[0]
-        target["obj_bbox"][:, 2] /= org_size[0] / self.image_size[1]
-        target["obj_bbox"][:, 3] /= org_size[1] / self.image_size[0]
-
         target["obj_bbox"] = torch.nn.functional.pad(
             target["obj_bbox"],
             (0, 0, 0, self.layout_length - len(target["obj_bbox"])),
+            mode="constant",
+            value=0,
+        )
+        target["obj_mask"] = torch.nn.functional.pad(
+            target["obj_mask"],
+            (0, 0, 0, 0, 0, self.layout_length - len(target["obj_mask"])),
             mode="constant",
             value=0,
         )
@@ -223,7 +231,7 @@ class WebUIDataset(torch.utils.data.Dataset):
             value=0,
         )
 
-        return img, target["obj_bbox"], target["obj_class"]  # return image and target dict
+        return img, target["obj_class"], target["obj_bbox"], target["obj_mask"]  # return image and target dict
 
     # except Exception as e:
     #     print("failed", idx, str(e))
