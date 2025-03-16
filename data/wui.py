@@ -5,6 +5,7 @@ import json
 
 # import orjson
 from torchvision import transforms
+from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 
@@ -285,8 +286,41 @@ class WebUIDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
         )
 
+# def wui_collate_fn(batch):
+#     """
+#     Collate function to be used when wrapping CocoSceneGraphDataset in a
+#     DataLoader. Returns a tuple of the following:
 
-def build_wui_dsets(cfg, mode="train"):
+#     - imgs: FloatTensor of shape (N, C, H, W)
+#     - objs: LongTensor of shape (O,) giving object categories
+#     - boxes: FloatTensor of shape (O, 4)
+#     - masks: FloatTensor of shape (O, M, M)
+#     - triples: LongTensor of shape (T, 3) giving triples
+#     - obj_to_img: LongTensor of shape (O,) mapping objects to images
+#     - triple_to_img: LongTensor of shape (T,) mapping triples to images
+#     """
+#     all_imgs, all_objs, all_boxes, all_masks, all_obj_to_img = [], [], [], [], []
+
+#     for i, (img, objs, boxes, masks) in enumerate(batch):
+#         all_imgs.append(img[None])
+#         O = objs.size(0)
+#         all_objs.append(objs)
+#         all_boxes.append(boxes)
+#         all_masks.append(masks)
+
+#         all_obj_to_img.append(torch.LongTensor(O).fill_(i))
+
+#     all_imgs = torch.cat(all_imgs)
+#     all_objs = torch.cat(all_objs)
+#     all_boxes = torch.cat(all_boxes)
+#     all_masks = torch.cat(all_masks)
+#     all_obj_to_img = torch.cat(all_obj_to_img)
+
+#     out = (all_imgs, all_objs, all_boxes, all_masks, all_obj_to_img)
+
+#     return out
+
+def build_wui_dsets(cfg, batch_size, mode="train"):
     assert mode in ["train", "val", "test"]
     params = cfg
     dataset = WebUIDataset(**params)
@@ -296,4 +330,12 @@ def build_wui_dsets(cfg, mode="train"):
     print("%s dataset has %d images and %d objects" % (mode, num_imgs, num_objs))
     print("(%.2f objects per image)" % (float(num_objs) / num_imgs))
 
-    return dataset, dataset
+    loader_kwargs = {
+        'batch_size': batch_size,
+        'num_workers': 8,
+        'shuffle': True,
+        'collate_fn': wui_collate_fn_for_layout,
+    }
+    train_loader = DataLoader(dataset, **loader_kwargs)
+
+    return train_loader

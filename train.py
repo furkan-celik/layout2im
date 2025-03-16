@@ -1,3 +1,4 @@
+from data.wui import build_wui_dsets
 import torch
 import argparse
 import torch.nn.functional as F
@@ -24,6 +25,22 @@ def main(config):
         data_loader, _ = get_dataloader_vg(batch_size=config.batch_size, VG_DIR=config.vg_dir)
     elif config.dataset == 'coco':
         data_loader, _ = get_dataloader_coco(batch_size=config.batch_size, COCO_DIR=config.coco_dir)
+    elif config.dataset == "wui":
+        data_loader, _ = build_wui_dsets(batch_size=config.batch_size, cfg={
+            "split_file": "/content/balanced_7k.json",
+            "boxes_dir": "/content/webui-boxes/all_data",
+            "rawdata_screenshots_dir": "/content/ds_all",
+            "class_map_file": "/content/layout2im/class_map.json",
+            "max_boxes": 100,
+            "layout_length": 100,
+            "num_classes_for_layout_object": 82,
+            "mask_size_for_layout_object": 128,
+            "used_condition_types": [
+                "obj_class",
+                "obj_bbox"
+            ],
+            "image_size": 256
+        })
     vocab_num = data_loader.dataset.num_objects
 
     assert config.clstm_layers > 0
